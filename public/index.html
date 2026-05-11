@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Pricing Advisor</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..900;1,9..144,300..900&family=Geist:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --surface: #131313;
+    --surface-2: #181818;
+    --border: #262626;
+    --border-soft: #1d1d1d;
+    --text: #ede8dc;
+    --muted: #807a6f;
+    --muted-2: #5a564e;
+    --accent: #d4a04c;
+    --accent-dim: #6b5024;
+    --success: #6ba368;
+    --warning: #c89545;
+    --danger: #b85450;
+  }
+  * { box-sizing: border-box; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Geist', sans-serif;
+    font-weight: 400;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(circle at 20% 0%, rgba(212,160,76,0.04) 0%, transparent 50%),
+      radial-gradient(circle at 80% 100%, rgba(212,160,76,0.02) 0%, transparent 50%);
+  }
+  .display { font-family: 'Fraunces', serif; font-variation-settings: 'opsz' 144, 'SOFT' 50; letter-spacing: -0.02em; }
+  .display-italic { font-family: 'Fraunces', serif; font-style: italic; font-variation-settings: 'opsz' 144; letter-spacing: -0.025em; }
+  .mono { font-family: 'JetBrains Mono', monospace; font-feature-settings: 'tnum'; }
+  .surface { background: var(--surface); }
+  .surface-2 { background: var(--surface-2); }
+  .b-soft { border-color: var(--border-soft); }
+  .b { border-color: var(--border); }
+  .muted { color: var(--muted); }
+  .muted-2 { color: var(--muted-2); }
+  .accent { color: var(--accent); }
+  .bg-accent { background: var(--accent); }
+  .border-accent { border-color: var(--accent); }
+  .rule-tick { background-image: linear-gradient(to right, var(--border) 50%, transparent 50%); background-size: 8px 1px; background-repeat: repeat-x; height: 1px; }
+
+  /* Editorial number ticker */
+  .edition-tag { font-feature-settings: 'tnum'; letter-spacing: 0.08em; text-transform: uppercase; font-size: 0.68rem; color: var(--muted); }
+
+  /* Form */
+  .field-label { font-size: 0.68rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--muted); font-weight: 500; }
+  input, select, textarea {
+    background: transparent;
+    border: 0;
+    border-bottom: 1px solid var(--border);
+    padding: 0.5rem 0;
+    color: var(--text);
+    font-family: 'Geist', sans-serif;
+    width: 100%;
+    transition: border-color 200ms;
+    outline: none;
+  }
+  input:focus, select:focus { border-bottom-color: var(--accent); }
+  input.mono-input { font-family: 'JetBrains Mono', monospace; }
+  select { background: var(--bg); padding-right: 1rem; }
+  select option { background: var(--bg); }
+
+  button.primary {
+    background: var(--accent);
+    color: #0a0a0a;
+    font-weight: 600;
+    padding: 0.85rem 1.5rem;
+    border: 0;
+    cursor: pointer;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-size: 0.78rem;
+    transition: background 150ms, transform 150ms;
+  }
+  button.primary:hover { background: #e2b35a; }
+  button.primary:active { transform: translateY(1px); }
+  button.primary:disabled { background: var(--accent-dim); cursor: wait; color: var(--muted); }
+
+  button.ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--border);
+    padding: 0.45rem 0.85rem;
+    cursor: pointer;
+    font-size: 0.78rem;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: all 150ms;
+  }
+  button.ghost:hover { color: var(--text); border-color: var(--muted); }
+  button.ghost.active { color: var(--accent); border-color: var(--accent); }
+
+  /* Verdict badges */
+  .badge { padding: 0.25rem 0.6rem; font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; border: 1px solid; display: inline-block; }
+  .badge-accept { color: var(--success); border-color: var(--success); }
+  .badge-adjust { color: var(--warning); border-color: var(--warning); }
+  .badge-redo   { color: var(--danger);  border-color: var(--danger); }
+  .badge-default { color: var(--muted); border-color: var(--border); }
+
+  /* Loading */
+  @keyframes pulse-soft { 0%,100% { opacity: 0.4 } 50% { opacity: 0.8 } }
+  .pulse { animation: pulse-soft 1.6s ease-in-out infinite; }
+  @keyframes shimmer { 0% { background-position: -200% 0 } 100% { background-position: 200% 0 } }
+  .shimmer {
+    background: linear-gradient(90deg, var(--surface) 0%, var(--surface-2) 50%, var(--surface) 100%);
+    background-size: 200% 100%;
+    animation: shimmer 2s ease-in-out infinite;
+  }
+
+  /* Reveal stagger */
+  @keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+  .rise { animation: rise 600ms cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+  .d-1 { animation-delay: 50ms; } .d-2 { animation-delay: 150ms; } .d-3 { animation-delay: 280ms; } .d-4 { animation-delay: 420ms; } .d-5 { animation-delay: 580ms; }
+
+  /* Accordion */
+  details { border-top: 1px solid var(--border-soft); }
+  details > summary { list-style: none; cursor: pointer; padding: 1rem 0; transition: color 150ms; }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary:hover { color: var(--accent); }
+  details[open] > summary { color: var(--accent); }
+  details > summary .chev { display: inline-block; transition: transform 200ms; color: var(--muted); }
+  details[open] > summary .chev { transform: rotate(90deg); }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: var(--bg); }
+  ::-webkit-scrollbar-thumb { background: var(--border); }
+  ::-webkit-scrollbar-thumb:hover { background: var(--muted-2); }
+</style>
+</head>
+<body class="min-h-screen">
+
+<!-- ========== MASTHEAD ========== -->
+<header class="border-b b max-w-[1400px] mx-auto px-8 lg:px-16 pt-10 pb-6">
+  <div class="flex items-baseline justify-between mb-8">
+    <div class="edition-tag">Advisor / Vol. II / Edition <span id="edition-date">—</span></div>
+    <div class="flex gap-2">
+      <button class="ghost active" id="tab-new">New analysis</button>
+      <button class="ghost" id="tab-history">History</button>
+    </div>
+  </div>
+  <div class="flex items-end justify-between flex-wrap gap-4">
+    <div>
+      <h1 class="display text-5xl md:text-7xl leading-[0.95]">Pricing<br><span class="display-italic">advisor</span></h1>
+    </div>
+    <div class="text-right text-sm muted leading-snug max-w-xs">
+      <div>Competitive nightly rate analysis<br>across a multi-night curve, with senior critique pass.</div>
+      <div class="mt-2 mono text-xs muted-2">v2.0 · n8n + qwen3:30b + serpapi</div>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-[1400px] mx-auto px-8 lg:px-16 pb-24">
+
+  <!-- ========== FORM SECTION ========== -->
+  <section id="form-section" class="pt-12 pb-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+      <div class="lg:col-span-8">
+        <div class="edition-tag mb-6">§ 01 — Inputs</div>
+        <form id="advisor-form" class="grid grid-cols-1 md:grid-cols-3 gap-x-8 gap-y-6">
+          <label class="block">
+            <span class="field-label">City</span>
+            <input id="f-city" type="text" value="Enschede" required>
+          </label>
+          <label class="block">
+            <span class="field-label">Start date</span>
+            <input id="f-date" class="mono-input" type="date" required>
+          </label>
+          <label class="block">
+            <span class="field-label">Nights</span>
+            <input id="f-nights" class="mono-input" type="number" value="7" min="1" max="14" required>
+          </label>
+
+          <label class="block">
+            <span class="field-label">Guests</span>
+            <input id="f-guests" class="mono-input" type="number" value="2" min="1" max="8" required>
+          </label>
+          <label class="block">
+            <span class="field-label">Room type</span>
+            <input id="f-room" type="text" value="double room" required>
+          </label>
+          <label class="block">
+            <span class="field-label">Property class</span>
+            <select id="f-class">
+              <option>boutique</option>
+              <option>2-star hotel</option>
+              <option selected>3-star hotel</option>
+              <option>4-star hotel</option>
+              <option>5-star hotel</option>
+              <option>vacation rental</option>
+              <option>B&amp;B</option>
+            </select>
+          </label>
+
+          <label class="block">
+            <span class="field-label">Own rating</span>
+            <input id="f-rating" class="mono-input" type="number" step="0.1" min="0" max="5" value="4.2" required>
+          </label>
+          <label class="block">
+            <span class="field-label">Own reviews</span>
+            <input id="f-reviews" class="mono-input" type="number" value="180" min="0" required>
+          </label>
+          <label class="block">
+            <span class="field-label">Location quality</span>
+            <input id="f-loc" type="text" value="city center, 5 min walk to station" required>
+          </label>
+
+          <div class="md:col-span-3 flex items-center justify-between pt-4">
+            <div class="text-sm muted-2">~90s per run · 7 SerpAPI calls · 8 Ollama calls</div>
+            <button type="submit" class="primary" id="run-btn">Run analysis →</button>
+          </div>
+        </form>
+      </div>
+
+      <aside class="lg:col-span-4 lg:border-l lg:b lg:pl-8">
+        <div class="edition-tag mb-6">§ 02 — Method</div>
+        <ol class="space-y-3 text-sm muted leading-relaxed">
+          <li><span class="mono accent">01.</span> Fan out date range into N nightly fetches</li>
+          <li><span class="mono accent">02.</span> SerpAPI Google Hotels per night</li>
+          <li><span class="mono accent">03.</span> Cluster competitors into value/mid/premium tiers</li>
+          <li><span class="mono accent">04.</span> Primary LLM: position property, anchor against tier</li>
+          <li><span class="mono accent">05.</span> Compute net rate by channel commission</li>
+          <li><span class="mono accent">06.</span> Aggregate into curve with weekend premium</li>
+          <li><span class="mono accent">07.</span> Senior LLM: critique the full curve</li>
+          <li><span class="mono accent">08.</span> Persist · notify · respond</li>
+        </ol>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ========== LOADING ========== -->
+  <section id="loading" class="hidden py-24">
+    <div class="text-center">
+      <div class="edition-tag mb-4">Working</div>
+      <div class="display-italic text-4xl mb-8 pulse" id="loading-msg">fetching market data</div>
+      <div class="max-w-md mx-auto h-1 bg-[color:var(--surface)] overflow-hidden">
+        <div class="h-full bg-accent shimmer" style="width: 100%"></div>
+      </div>
+      <div class="mono text-xs muted-2 mt-6"><span id="loading-elapsed">0</span>s elapsed</div>
+    </div>
+  </section>
+
+  <!-- ========== ERROR ========== -->
+  <section id="error" class="hidden py-12">
+    <div class="surface p-6 border-l-4" style="border-color: var(--danger);">
+      <div class="edition-tag" style="color: var(--danger);">Error</div>
+      <div class="mt-2 text-lg" id="error-msg">Something went wrong.</div>
+      <pre class="mono text-xs muted mt-4 whitespace-pre-wrap" id="error-detail"></pre>
+    </div>
+  </section>
+
+  <!-- ========== RESULTS ========== -->
+  <section id="results" class="hidden">
+    <!-- Hero recommendation -->
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-8 pb-12 rise d-1">
+      <div class="lg:col-span-7">
+        <div class="edition-tag mb-4">§ 03 — Recommendation</div>
+        <div class="display-italic accent leading-none" style="font-size: clamp(5rem, 14vw, 11rem); font-weight: 400;">
+          €<span id="r-avg">—</span>
+        </div>
+        <div class="text-sm muted mt-4 leading-relaxed max-w-md" id="r-subtitle">average across the curve</div>
+      </div>
+      <div class="lg:col-span-5 lg:border-l lg:b lg:pl-8 grid grid-cols-2 gap-6 self-end pb-2">
+        <div>
+          <div class="field-label mb-1">Date range</div>
+          <div class="mono text-sm" id="r-range">—</div>
+        </div>
+        <div>
+          <div class="field-label mb-1">Nights</div>
+          <div class="mono text-sm" id="r-nights">—</div>
+        </div>
+        <div>
+          <div class="field-label mb-1">Market median</div>
+          <div class="mono text-sm" id="r-median">—</div>
+        </div>
+        <div>
+          <div class="field-label mb-1">Weekend premium</div>
+          <div class="mono text-sm" id="r-weekend">—</div>
+        </div>
+        <div>
+          <div class="field-label mb-1">Market range</div>
+          <div class="mono text-sm" id="r-mrange">—</div>
+        </div>
+        <div>
+          <div class="field-label mb-1">Verdict</div>
+          <div id="r-verdict">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rule-tick"></div>
+
+    <!-- Curve chart -->
+    <div class="pt-12 pb-8 rise d-2">
+      <div class="flex items-baseline justify-between mb-6">
+        <div>
+          <div class="edition-tag">§ 04 — Nightly curve</div>
+          <h2 class="display text-3xl mt-2">Recommended vs market</h2>
+        </div>
+        <div class="text-xs mono muted-2">EUR per night</div>
+      </div>
+      <div class="surface p-6" style="height: 380px;">
+        <canvas id="curve-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Net rates -->
+    <div class="pt-12 pb-8 rise d-3">
+      <div class="edition-tag mb-2">§ 05 — Net rate by channel</div>
+      <h2 class="display text-3xl mb-6">After commission</h2>
+      <div class="grid grid-cols-2 lg:grid-cols-4 gap-4" id="net-rates"></div>
+      <div class="text-xs muted-2 mt-4">Calculated against the average recommended rate. Real contracts vary; tune commission percentages in <span class="mono">Per-Night Synthesis</span>.</div>
+    </div>
+
+    <!-- Critique -->
+    <div class="pt-12 pb-8 rise d-4">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-8">
+        <div class="lg:col-span-4">
+          <div class="edition-tag mb-2">§ 06 — Senior review</div>
+          <h2 class="display text-3xl">Critique pass</h2>
+          <div class="mt-4 text-sm muted leading-relaxed" id="critique-summary">—</div>
+          <div class="mt-6" id="critique-verdict-box"></div>
+        </div>
+        <div class="lg:col-span-8">
+          <div class="space-y-6" id="critiques-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Per-night detail -->
+    <div class="pt-12 pb-8 rise d-5">
+      <div class="edition-tag mb-2">§ 07 — Per-night detail</div>
+      <h2 class="display text-3xl mb-4">Anchors and reasoning</h2>
+      <div id="nights-list" class="border-b b"></div>
+    </div>
+  </section>
+
+  <!-- ========== HISTORY ========== -->
+  <section id="history" class="hidden pt-8">
+    <div class="edition-tag mb-2">§ — History</div>
+    <h2 class="display text-3xl mb-8">Recent runs</h2>
+    <div id="history-content" class="space-y-2"></div>
+  </section>
+
+</main>
+
+<footer class="border-t b max-w-[1400px] mx-auto px-8 lg:px-16 py-8 mt-12 flex justify-between items-center text-xs muted-2">
+  <div class="mono">PRICING ADVISOR · V2.0</div>
+  <div class="mono">imeanit.nl</div>
+</footer>
+
+<script>
+// ============================================================================
+// CONFIG — set these to point at your n8n webhooks
+// ============================================================================
+const ANALYZE_URL = 'https://n8n.pulosu.hexie.dev/webhook/pricing-analyze';
+const HISTORY_URL = 'https://n8n.pulosu.hexie.dev/webhook/pricing-history';
+// Note: when testing in n8n, switch /webhook/ to /webhook-test/ and click "Listen for test event" first.
+
+// ============================================================================
+// State
+// ============================================================================
+let chart = null;
+const $ = id => document.getElementById(id);
+
+// ============================================================================
+// Init
+// ============================================================================
+function init() {
+  // Today's date as default
+  const today = new Date();
+  $('f-date').value = today.toISOString().slice(0, 10);
+  $('edition-date').textContent = today.toISOString().slice(0, 10);
+
+  $('advisor-form').addEventListener('submit', onSubmit);
+  $('tab-new').addEventListener('click', () => switchTab('new'));
+  $('tab-history').addEventListener('click', () => switchTab('history'));
+}
+
+function switchTab(tab) {
+  $('tab-new').classList.toggle('active', tab === 'new');
+  $('tab-history').classList.toggle('active', tab === 'history');
+  $('form-section').classList.toggle('hidden', tab !== 'new');
+  $('results').classList.toggle('hidden', tab !== 'new' || !$('results').dataset.loaded);
+  $('history').classList.toggle('hidden', tab !== 'history');
+  if (tab === 'history') loadHistory();
+}
+
+// ============================================================================
+// Submit
+// ============================================================================
+async function onSubmit(e) {
+  e.preventDefault();
+  const body = {
+    city: $('f-city').value.trim(),
+    date_range_start: $('f-date').value,
+    nights: parseInt($('f-nights').value, 10),
+    guests: parseInt($('f-guests').value, 10),
+    room_type: $('f-room').value.trim(),
+    own_class: $('f-class').value,
+    own_rating: parseFloat($('f-rating').value),
+    own_reviews: parseInt($('f-reviews').value, 10),
+    own_location_quality: $('f-loc').value.trim()
+  };
+
+  showLoading();
+  try {
+    const res = await fetch(ANALYZE_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error(`HTTP ${res.status}: ${await res.text()}`);
+    const data = await res.json();
+    hideLoading();
+    renderResults(data);
+  } catch (err) {
+    hideLoading();
+    showError(err);
+  }
+}
+
+// ============================================================================
+// Loading
+// ============================================================================
+const LOADING_MESSAGES = [
+  'fetching market data',
+  'normalizing competitor distribution',
+  'clustering by quality tier',
+  'analyzing night by night',
+  'computing net rates',
+  'aggregating the curve',
+  'running senior critique pass',
+  'finalizing recommendation'
+];
+let loadingTimer = null;
+let loadingStartTime = 0;
+
+function showLoading() {
+  $('error').classList.add('hidden');
+  $('results').classList.add('hidden');
+  $('form-section').classList.add('hidden');
+  $('loading').classList.remove('hidden');
+  $('run-btn').disabled = true;
+
+  loadingStartTime = Date.now();
+  let i = 0;
+  $('loading-msg').textContent = LOADING_MESSAGES[0];
+  loadingTimer = setInterval(() => {
+    i = (i + 1) % LOADING_MESSAGES.length;
+    $('loading-msg').textContent = LOADING_MESSAGES[i];
+    $('loading-elapsed').textContent = Math.floor((Date.now() - loadingStartTime) / 1000);
+  }, 4000);
+  // Tick the elapsed counter every second
+  setInterval(() => {
+    if (loadingTimer) $('loading-elapsed').textContent = Math.floor((Date.now() - loadingStartTime) / 1000);
+  }, 1000);
+}
+
+function hideLoading() {
+  clearInterval(loadingTimer);
+  loadingTimer = null;
+  $('loading').classList.add('hidden');
+  $('run-btn').disabled = false;
+}
+
+function showError(err) {
+  $('error').classList.remove('hidden');
+  $('form-section').classList.remove('hidden');
+  $('error-msg').textContent = err.message || 'Unknown error';
+  $('error-detail').textContent = err.stack || '';
+}
+
+// ============================================================================
+// Render
+// ============================================================================
+function renderResults(data) {
+  const summary = data.summary;
+  const curve = data.curve;
+  const critique = data.critique || {};
+
+  // Hero
+  $('r-avg').textContent = summary.recommended_avg_eur ?? '—';
+  $('r-range').textContent = `${summary.date_range.start} → ${summary.date_range.end}`;
+  $('r-nights').textContent = summary.date_range.nights;
+  $('r-median').textContent = `€${summary.market_median_eur ?? '—'}`;
+  $('r-weekend').textContent = summary.weekend_premium_eur != null ? `+€${summary.weekend_premium_eur}` : '—';
+  $('r-mrange').textContent = `€${summary.market_min_eur ?? '—'} – €${summary.market_max_eur ?? '—'}`;
+  $('r-subtitle').textContent = `Average rate across ${summary.date_range.nights} nights · ${data.search?.city || ''}`;
+  $('r-verdict').innerHTML = badge(critique.verdict);
+  $('critique-verdict-box').innerHTML = `
+    <div class="field-label mb-2">Verdict</div>
+    <div>${badge(critique.verdict)}</div>
+  `;
+
+  // Curve chart
+  renderChart(curve);
+
+  // Net rates (use average)
+  renderNetRates(curve, summary.recommended_avg_eur);
+
+  // Critique
+  $('critique-summary').textContent = critique.summary || 'No critique available.';
+  $('critiques-list').innerHTML = (critique.critiques || []).map((c, i) => `
+    <div class="border-l-2 pl-5 b" style="border-color: var(--accent);">
+      <div class="mono text-xs accent mb-2">CRITIQUE ${String(i + 1).padStart(2, '0')}</div>
+      <div class="text-base mb-3">${escapeHtml(c.issue || '')}</div>
+      <div class="text-sm muted mb-2"><span class="edition-tag">Impact</span><br>${escapeHtml(c.impact || '')}</div>
+      <div class="text-sm"><span class="edition-tag">Adjustment</span><br>${escapeHtml(c.adjustment || '')}</div>
+    </div>
+  `).join('');
+
+  // Per-night detail
+  $('nights-list').innerHTML = curve.map((n, i) => `
+    <details>
+      <summary class="flex items-center justify-between">
+        <div class="flex items-baseline gap-4">
+          <span class="chev mono">›</span>
+          <span class="mono accent">${n.date}</span>
+          <span class="muted text-sm">${n.dow}</span>
+          <span class="display-italic text-2xl">€${n.recommended_eur}</span>
+          <span class="badge badge-default">${n.positioning}</span>
+        </div>
+        <div class="mono text-sm muted">market median €${n.market_median_eur}</div>
+      </summary>
+      <div class="pb-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
+        <div class="lg:col-span-7">
+          <div class="edition-tag mb-2">Reasoning</div>
+          <p class="text-sm leading-relaxed mb-4">${escapeHtml(n.reasoning || '')}</p>
+          <div class="edition-tag mb-2">Risks</div>
+          <p class="text-sm muted leading-relaxed">${escapeHtml(n.risks || '')}</p>
+        </div>
+        <div class="lg:col-span-5">
+          <div class="edition-tag mb-2">Competitor anchors</div>
+          <div class="space-y-2">
+            ${(n.competitor_anchors || []).map(a => `
+              <div class="surface p-3 text-xs">
+                <div class="flex justify-between items-baseline">
+                  <span>${escapeHtml(a.name || '')}</span>
+                  <span class="mono accent">€${a.price_eur}</span>
+                </div>
+                <div class="muted mt-1">${escapeHtml(a.rationale || '')}</div>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+    </details>
+  `).join('');
+
+  $('results').classList.remove('hidden');
+  $('results').dataset.loaded = '1';
+  $('form-section').classList.remove('hidden');
+  // Smooth scroll to results
+  setTimeout(() => $('results').scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+}
+
+function renderChart(curve) {
+  const ctx = $('curve-chart').getContext('2d');
+  if (chart) chart.destroy();
+
+  const labels = curve.map(c => c.date);
+  const recommended = curve.map(c => c.recommended_eur);
+  const median = curve.map(c => c.market_median_eur);
+  const p25 = curve.map(c => c.market_p25_eur);
+  const p75 = curve.map(c => c.market_p75_eur);
+
+  Chart.defaults.font.family = "'JetBrains Mono', monospace";
+  Chart.defaults.color = '#807a6f';
+
+  chart = new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Market p75',
+          data: p75,
+          borderColor: 'rgba(212,160,76,0.0)',
+          backgroundColor: 'rgba(212,160,76,0.06)',
+          fill: '+1',
+          pointRadius: 0,
+          tension: 0.3
+        },
+        {
+          label: 'Market p25',
+          data: p25,
+          borderColor: 'rgba(212,160,76,0.0)',
+          backgroundColor: 'transparent',
+          fill: false,
+          pointRadius: 0,
+          tension: 0.3
+        },
+        {
+          label: 'Market median',
+          data: median,
+          borderColor: '#5a564e',
+          borderDash: [4, 4],
+          backgroundColor: 'transparent',
+          pointRadius: 0,
+          tension: 0.3,
+          borderWidth: 1
+        },
+        {
+          label: 'Recommended',
+          data: recommended,
+          borderColor: '#d4a04c',
+          backgroundColor: '#d4a04c',
+          pointRadius: 5,
+          pointHoverRadius: 7,
+          tension: 0.3,
+          borderWidth: 2,
+          fill: false
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { intersect: false, mode: 'index' },
+      plugins: {
+        legend: {
+          position: 'top',
+          align: 'end',
+          labels: {
+            filter: (item) => !item.text.includes('p25') && !item.text.includes('p75'),
+            font: { size: 11 },
+            boxWidth: 12,
+            usePointStyle: true
+          }
+        },
+        tooltip: {
+          backgroundColor: '#181818',
+          borderColor: '#262626',
+          borderWidth: 1,
+          titleColor: '#ede8dc',
+          bodyColor: '#ede8dc',
+          padding: 12,
+          cornerRadius: 0,
+          displayColors: true,
+          callbacks: {
+            label: (ctx) => `${ctx.dataset.label}: €${ctx.parsed.y}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: '#1d1d1d', drawBorder: false },
+          ticks: { font: { size: 10 } }
+        },
+        y: {
+          grid: { color: '#1d1d1d', drawBorder: false },
+          ticks: {
+            font: { size: 10 },
+            callback: (v) => '€' + v
+          }
+        }
+      }
+    }
+  });
+}
+
+function renderNetRates(curve, avgRec) {
+  // Use channels from first night (consistent across nights since same model)
+  const channels = (curve[0]?.net_rates || []).map(c => c.channel);
+  const html = channels.map(channel => {
+    const sample = curve[0].net_rates.find(c => c.channel === channel);
+    const avgNet = Math.round(avgRec * (1 - sample.commission_pct) * 100) / 100;
+    const commissionPct = (sample.commission_pct * 100).toFixed(0);
+    const isDirect = channel === 'Direct';
+    return `
+      <div class="surface p-5 ${isDirect ? 'border-l-2 border-accent' : ''}">
+        <div class="edition-tag mb-3">${channel}</div>
+        <div class="display-italic text-3xl mb-1">€${avgNet}</div>
+        <div class="text-xs muted mono">net at ${commissionPct}% commission</div>
+        <div class="text-xs muted-2 mono mt-2">list €${avgRec}</div>
+      </div>
+    `;
+  }).join('');
+  $('net-rates').innerHTML = html;
+}
+
+function badge(verdict) {
+  if (!verdict) return '<span class="badge badge-default">—</span>';
+  const v = verdict.toLowerCase();
+  const cls = v === 'accept' ? 'badge-accept' : v === 'adjust' ? 'badge-adjust' : v === 'redo' ? 'badge-redo' : 'badge-default';
+  return `<span class="badge ${cls}">${verdict}</span>`;
+}
+
+function escapeHtml(s) {
+  return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+// ============================================================================
+// History
+// ============================================================================
+async function loadHistory() {
+  const el = $('history-content');
+  el.innerHTML = '<div class="muted text-sm">Loading...</div>';
+  try {
+    const res = await fetch(HISTORY_URL);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const items = await res.json();
+    if (!items.length) {
+      el.innerHTML = '<div class="muted text-sm">No history yet. Run the first analysis above.</div>';
+      return;
+    }
+    el.innerHTML = `
+      <div class="grid grid-cols-12 gap-4 edition-tag pb-3 border-b b-soft">
+        <div class="col-span-2">When</div>
+        <div class="col-span-1">Source</div>
+        <div class="col-span-2">City</div>
+        <div class="col-span-3">Range</div>
+        <div class="col-span-1 text-right">Avg rec</div>
+        <div class="col-span-1 text-right">Mkt med</div>
+        <div class="col-span-2 text-right">Verdict</div>
+      </div>
+      ${items.map(r => {
+        const when = new Date(r.created_at).toLocaleString();
+        const verdict = r.critique?.verdict;
+        return `
+          <div class="grid grid-cols-12 gap-4 py-3 border-b b-soft items-center text-sm">
+            <div class="col-span-2 mono text-xs muted">${when}</div>
+            <div class="col-span-1 text-xs muted">${r.trigger_source}</div>
+            <div class="col-span-2">${r.city}</div>
+            <div class="col-span-3 mono text-xs muted">${r.date_range_start} → ${r.date_range_end}</div>
+            <div class="col-span-1 text-right mono accent">€${r.recommended_avg_eur ?? '—'}</div>
+            <div class="col-span-1 text-right mono muted">€${r.market_median_eur ?? '—'}</div>
+            <div class="col-span-2 text-right">${badge(verdict)}</div>
+          </div>
+        `;
+      }).join('')}
+    `;
+  } catch (err) {
+    el.innerHTML = `<div class="muted text-sm">Failed to load history: ${escapeHtml(err.message)}</div>`;
+  }
+}
+
+init();
+</script>
+
+</body>
+</html>
