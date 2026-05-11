@@ -3,7 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Pricing Advisor</title>
+<title>Pricing Advisor | hexie.dev</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -356,8 +357,8 @@
 </main>
 
 <footer class="border-t b max-w-[1400px] mx-auto px-8 lg:px-16 py-8 mt-12 flex justify-between items-center text-xs muted-2">
-  <div class="mono">PRICING ADVISOR · V2.0</div>
-  <div class="mono">imeanit.nl</div>
+  <div class="mono">PRICING ADVISOR · v<span id="app-version">…</span></div>
+  <div class="mono">hexie.dev</div>
 </footer>
 
 <script>
@@ -372,6 +373,7 @@ const HISTORY_URL = 'https://n8n.pulosu.hexie.dev/webhook/pricing-history';
 // State
 // ============================================================================
 let chart = null;
+let historyItems = [];  // cached history rows for click-to-restore
 const $ = id => document.getElementById(id);
 
 // ============================================================================
@@ -382,6 +384,12 @@ function init() {
   const today = new Date();
   $('f-date').value = today.toISOString().slice(0, 10);
   $('edition-date').textContent = today.toISOString().slice(0, 10);
+
+  // Container version from /version.txt (written at Docker build time)
+  fetch('/version.txt')
+    .then(r => r.ok ? r.text() : 'dev')
+    .then(v => { $('app-version').textContent = v.trim() || 'dev'; })
+    .catch(() => { $('app-version').textContent = 'dev'; });
 
   $('advisor-form').addEventListener('submit', onSubmit);
   $('tab-new').addEventListener('click', () => switchTab('new'));
@@ -712,6 +720,7 @@ async function loadHistory() {
     const res = await fetch(HISTORY_URL);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const items = await res.json();
+    historyItems = items;  // cache for click-to-restore
     if (!items.length) {
       el.innerHTML = '<div class="muted text-sm">No history yet. Run the first analysis above.</div>';
       return;
@@ -726,14 +735,15 @@ async function loadHistory() {
         <div class="col-span-1 text-right">Mkt med</div>
         <div class="col-span-2 text-right">Verdict</div>
       </div>
-      ${items.map(r => {
+      ${items.map((r, i) => {
         const when = new Date(r.created_at).toLocaleString();
-        const verdict = r.critique?.verdict;
+        const verdict = r.full_response?.critique?.verdict;
+        const hasData = !!r.full_response;
         return `
-          <div class="grid grid-cols-12 gap-4 py-3 border-b b-soft items-center text-sm">
+          <div class="history-row grid grid-cols-12 gap-4 py-3 border-b b-soft items-center text-sm transition-colors ${hasData ? 'cursor-pointer hover:bg-[color:var(--surface)]' : 'opacity-50'}" data-index="${i}">
             <div class="col-span-2 mono text-xs muted">${when}</div>
             <div class="col-span-1 text-xs muted">${r.trigger_source}</div>
-            <div class="col-span-2">${r.city}</div>
+            <div class="col-span-2">${escapeHtml(r.city)}</div>
             <div class="col-span-3 mono text-xs muted">${r.date_range_start} → ${r.date_range_end}</div>
             <div class="col-span-1 text-right mono accent">€${r.recommended_avg_eur ?? '—'}</div>
             <div class="col-span-1 text-right mono muted">€${r.market_median_eur ?? '—'}</div>
@@ -741,10 +751,25 @@ async function loadHistory() {
           </div>
         `;
       }).join('')}
+      <div class="text-xs muted-2 mt-4">Click any row to restore that analysis without re-running.</div>
     `;
+    // wire row clicks
+    el.querySelectorAll('.history-row').forEach(row => {
+      row.addEventListener('click', () => {
+        const i = parseInt(row.dataset.index, 10);
+        loadFromHistory(i);
+      });
+    });
   } catch (err) {
     el.innerHTML = `<div class="muted text-sm">Failed to load history: ${escapeHtml(err.message)}</div>`;
   }
+}
+
+function loadFromHistory(index) {
+  const row = historyItems[index];
+  if (!row || !row.full_response) return;
+  switchTab('new');
+  renderResults(row.full_response);
 }
 
 init();

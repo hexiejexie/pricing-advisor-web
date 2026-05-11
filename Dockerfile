@@ -1,12 +1,18 @@
 # syntax=docker/dockerfile:1.7
 FROM nginxinc/nginx-unprivileged:1.27-alpine AS runtime
 
+ARG VERSION=dev
+
 COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 COPY public/ /usr/share/nginx/html/
 
+# Write version for the frontend to display, and embed in OCI metadata
+RUN echo -n "$VERSION" > /usr/share/nginx/html/version.txt
+
 LABEL org.opencontainers.image.source="https://github.com/hexiejexie/pricing-advisor-web" \
       org.opencontainers.image.description="Static dashboard for the n8n competitive pricing workflow" \
-      org.opencontainers.image.licenses="MIT"
+      org.opencontainers.image.licenses="MIT" \
+      org.opencontainers.image.version="$VERSION"
 
 EXPOSE 8080
 
