@@ -11,6 +11,8 @@ Shipped as a multi-arch container (`linux/amd64`, `linux/arm64`) via GitHub Acti
 
 Live at [pricing.hexie.dev](https://pricing.hexie.dev).
 
+![Pricing Advisor dashboard](docs/dashboard1.png)
+
 ## What it does
 
 You give it a city, a start date, a number of nights, and your own property's class, rating, and review count. It returns:
@@ -22,6 +24,8 @@ You give it a city, a start date, a number of nights, and your own property's cl
 - Persistent history of every run with click-to-restore
 
 The dashboard is read-only on top of the workflow. All state lives in Postgres on the n8n side.
+
+![Pricing Advisor critique](docs/dashboard2.png)
 
 ## Architecture
 
@@ -53,6 +57,8 @@ The dashboard is read-only on top of the workflow. All state lives in Postgres o
    |  - Discord notify          |
    +----------------------------+
 ```
+
+![n8n flow](docs/n8n-flow.png)
 
 The frontend talks to the workflow over two endpoints: `POST /webhook/pricing-analyze` to run a new analysis, `GET /webhook/pricing-history` to list past runs. Browser traffic only ever sees the dashboard's origin because nginx proxies `/webhook/*` upstream to n8n, which removes the need to configure CORS on the n8n side and sidesteps Chrome's Private Network Access prompt when the dashboard is served publicly and n8n resolves to a LAN address.
 
