@@ -1,0 +1,39 @@
+x-traefik-labels: &traefik-template
+  traefik.enable: true
+  traefik.http.routers.pricing-http.rule: Host(`${APP_NAME}.${BASE_DOMAIN}`)
+  traefik.http.routers.pricing-http.entrypoints: web
+  traefik.http.routers.pricing-http.middlewares: redirect-to-https
+  traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
+  traefik.http.routers.pricing-https.rule: Host(`${APP_NAME}.${BASE_DOMAIN}`)
+  traefik.http.routers.pricing-https.entrypoints: websecure
+  traefik.http.routers.pricing-https.tls: true
+  traefik.http.routers.pricing-https.tls.certresolver: cloudflare
+  traefik.http.routers.pricing-https.service: ${APP_NAME}
+  traefik.http.services.pricing.loadbalancer.server.port: ${APP_PORT}
+
+x-homepage-labels: &homepage-template
+  homepage.group: ${HOMEPAGE_GROUP}
+  homepage.name: ${HOMEPAGE_NAME}
+  homepage.icon: ${HOMEPAGE_ICON}
+  homepage.href: https://${APP_NAME}.${BASE_DOMAIN}
+  homepage.description: ${HOMEPAGE_DESCRIPTION}
+
+x-kuma-labels: &kuma-template
+  kuma.pricing.http.name: ${HOMEPAGE_NAME}
+  kuma.pricing.http.url: https://${APP_NAME}.${BASE_DOMAIN}/healthz
+  kuma.pricing.http.max_retries: 3
+  kuma.pricing.http.interval: 60
+
+services:
+  pricing-web:
+    container_name: ${APP_NAME}
+    image: ghcr.io/hexiejexie/pricing-advisor-web:${IMAGE_TAG:-latest}
+    restart: unless-stopped
+    networks:
+      - frontend
+    labels:
+      <<: [*traefik-template, *homepage-template, *kuma-template]
+
+networks:
+  frontend:
+    external: true
