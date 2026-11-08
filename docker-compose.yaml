@@ -1,9 +1,5 @@
 x-traefik-labels: &traefik-template
   traefik.enable: true
-  traefik.http.routers.pricing-http.rule: Host(`pricing.hexie.dev`) || Host(`${APP_NAME}.${BASE_DOMAIN}`)
-  traefik.http.routers.pricing-http.entrypoints: web
-  traefik.http.routers.pricing-http.middlewares: redirect-to-https
-  traefik.http.middlewares.redirect-to-https.redirectscheme.scheme: https
   traefik.http.routers.pricing-https.rule: Host(`pricing.hexie.dev`) ||Host(`${APP_NAME}.${BASE_DOMAIN}`)
   traefik.http.routers.pricing-https.entrypoints: websecure
   traefik.http.routers.pricing-https.tls: true
@@ -29,6 +25,8 @@ services:
     container_name: ${APP_NAME}
     image: ghcr.io/hexiejexie/pricing-advisor-web:${IMAGE_TAG:-latest}
     restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Europe/Amsterdam}
     networks:
       - frontend
     labels:
